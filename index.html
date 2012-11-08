@@ -1,0 +1,81 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Puzzle</title>
+<script type="text/javascript" src="utils.js"></script>
+<script type="text/javascript" src="models.js"></script>
+<script type="text/javascript">
+	window.onload = function() {
+		var 画布 = document.getElementById('canvas_stage');
+		var 方块, 方块堆 = null;
+		var 可点击, 可拖曳 = false;
+		var 开始X, 开始Y, 结束X, 结束Y = 0;
+		var 图像 = new Image();
+		图像.src = 'puzzle.jpg';
+		图像.onload = 初始化;
+		function 初始化() {  
+			var stage = new 舞台(画布, 图像, 4);
+			stage.打乱并重绘方块堆();
+			function 当鼠标点击(事件) {
+				if (可点击) {
+					方块 = stage.用位置找方块(stage.找位置(事件.pageX - 画布.offsetLeft, 事件.pageY - 画布.offsetTop));
+					if (方块 != null) {
+						方块堆 = stage.找可到达的空白方块和路径(方块);
+						if(方块堆 != null) {
+							stage.轮换方块堆(方块堆);
+						}
+						if (stage.拼图是否完成(true)) alert('Puzzle finished.');
+					}
+				}
+			}
+			function 当鼠标按键按下(事件) {
+				可点击 = true;
+				方块 = stage.用位置找方块(stage.找位置(事件.pageX - 画布.offsetLeft, 事件.pageY - 画布.offsetTop));
+				if (方块 != null) {
+					可拖曳 = true;
+					开始X = 事件.pageX - 画布.offsetLeft;
+					开始Y = 事件.pageY - 画布.offsetTop;
+					方块堆 = stage.找可到达的空白方块和路径(方块);
+					if(方块堆 != null) {
+						画布.onmousemove = 当鼠标移动;
+					}
+				}
+			}
+			function 当鼠标移动(事件) {
+				if (可拖曳) {
+					可点击 = false;
+					结束X = 事件.pageX - 画布.offsetLeft;
+					结束Y = 事件.pageY - 画布.offsetTop;
+					dx = 结束X - 开始X;
+					dy = 结束Y - 开始Y;
+					var tileDX = 方块堆[方块堆.length - 1].位置.x - 方块.位置.x;
+					var tileDY = 方块堆[方块堆.length - 1].位置.y - 方块.位置.y;
+					if ((Math.abs(dx) >= stage.方块尺寸 / 2) && (dx < 0 && tileDX < 0 || dx > 0 && tileDX > 0) || 
+						(Math.abs(dy) >= stage.方块尺寸 / 2) && (dy < 0 && tileDY < 0 || dy > 0 && tileDY > 0)) {
+						stage.轮换方块堆(方块堆);
+						可拖曳 = false;
+					}
+					if (stage.拼图是否完成(true)) alert('Puzzle finished.');
+				}
+			}
+			function 当鼠标按键释放(事件) {
+				可拖曳 = false;
+				画布.onmousemove = null;
+			}
+			画布.onclick = 当鼠标点击;
+			画布.onmousedown = 当鼠标按键按下;
+			画布.onmouseup = 当鼠标按键释放;
+		}
+	}
+</script>
+<style>
+	body { background-color: #BBB };
+</style>
+</head>
+<body>
+	<center>
+		<canvas id="canvas_stage">Sorry but your browser does not support HTML5 Canvas feature, which is required by this sliding puzzle game.</canvas>
+	</center>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Flickr Random Photo Puzzle</title>
+<script type="text/javascript">
+var image_url;
+function jsonFlickrApi(rsp) {
+	if (rsp.stat != "ok") window.location.reload();
+	var i = Math.random();
+	i = i * 100;
+	i = Math.ceil(i);
+	photo = rsp.photos.photo[i];
+	image_url = "http://farm" + photo.farm + ".static.flickr.com/" + photo.server + "/" + photo.id + "_" + photo.secret + ".jpg";
+}
+</script>
+<script type="text/javascript" language="javascript" src="http://api.flickr.com/services/rest/?format=json&sort=random&method=flickr.photos.search&tags=japan,anime,china,beijing,shanghai,yunnan,hongkong,taiwan,korea,usa,europe&api_key=d4270df18b6843be533c471e9a8c57b2">
+</script>
+<script type="text/javascript">
+Array.copy = function(from, to) {
+	for (var i = 0; i < from.length; i++) {
+		to.push(from[i]);
+	}
+	return to;
+};
+
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+	var rest = this.slice((to || from) + 1 || this.length);
+	this.length = from < 0 ? this.length + from : from;
+	return this.push.apply(this, rest);
+};
+    
+function Stage(canvas, image, num) {
+	this.canvas = canvas;
+	this.image = image;
+	this.num = num;
+	
+	this.tileWidth = Math.floor(this.image.width / num);
+	this.tileHeight = Math.floor(this.image.height / num);
+	this.padding = 0;
+	this.gridWidth = 1;
+	this.canvas.width = this.image.width + this.padding * 2 + this.gridWidth * (num - 1);
+	this.canvas.height = this.image.height + this.padding * 2 + this.gridWidth * (num - 1);
+	this.tiles = [];
+	this.positions = [];
+	this.context = this.canvas.getContext('2d');
+	this.init();
+}
+
+Stage.prototype.init = function() {
+	for (var i = 0, y = 0, y1 = 0; y1 < this.num; y += this.tileHeight, y1++) {
+		for (var x = 0, x1 = 0; x1 < this.num; x += this.tileWidth, x1++, i++) {
+			var position = {x: x + this.padding + this.gridWidth * x1, y: y + this.padding + this.gridWidth * y1, x1: x1, y1: y1, i: i};
+			this.tiles.push({
+				x: x,
+				y: y,
+				i: i,
+				position: position,
+				blank: false
+			});
+			this.positions.push(position);
+		}
+	}
+	this.tiles[this.tiles.length - 1].blank = true;
+	this.clear();
+}
+    
+Stage.prototype.clone = function(o) {
+	function c(o) {
+	  	for (var i in o) {
+			this[i] = o[i];
+	  	}
+	}
+	return new c(o);
+};
+
+Stage.prototype.findPosition = function(x, y) {
+	for (var i = 0; i < this.positions.length; i++) {
+		if (x >= this.positions[i].x && x <= this.positions[i].x + this.tileWidth &&
+			y >= this.positions[i].y && y <= this.positions[i].y + this.tileHeight) {
+			return i;	
+		}
+	}
+	return -1;
+};
+
+Stage.prototype.findTileWithPosition = function(position) {
+	for (var i = 0; i < this.tiles.length; i++) {
+		if (this.tiles[i].position.i == position) {
+			return this.tiles[i];	
+		}
+	}
+};
+
+Stage.prototype.findTileWithCoordinate = function(x1, y1) {
+	for (var i = 0; i < this.tiles.length; i++) {
+		if (this.tiles[i].position.x1 == x1 && this.tiles[i].position.y1 == y1) {
+			return this.tiles[i];	
+		}
+	}
+	return null;
+};
+
+Stage.prototype.findReachableBlankTileAndPath = function(tile) {
+	var temp;
+	var tiles = [];
+	for (var x = tile.position.x1; x >= 0; x--) {
+		temp = this.findTileWithCoordinate(x, tile.position.y1);
+		tiles.push(temp);
+		if(temp.blank) return tiles;
+	}
+	tiles = [];
+	for (var x = tile.position.x1; x <= this.num - 1; x++) {
+		temp = this.findTileWithCoordinate(x, tile.position.y1);
+		tiles.push(temp);
+		if(temp.blank) return tiles;
+	}
+	tiles = [];
+	for (var y = tile.position.y1; y >= 0; y--) {
+		temp = this.findTileWithCoordinate(tile.position.x1, y);
+		tiles.push(temp);
+		if(temp.blank) return tiles;
+	}
+	tiles = [];
+	for (var y = tile.position.y1; y <= this.num - 1; y++) {
+		temp = this.findTileWithCoordinate(tile.position.x1, y);
+		tiles.push(temp);
+		if(temp.blank) return tiles;
+	}
+	return null;
+};
+
+Stage.prototype.swapTiles = function(tile1, tile2) {
+	var temp = this.clone(tile2);
+	tile2.x = tile1.x;
+	tile2.y = tile1.y;
+	tile2.i = tile1.i;
+	tile2.blank = tile1.blank;
+	tile1.x = temp.x;
+	tile1.y = temp.y;
+	tile1.i = temp.i;
+	tile1.blank = temp.blank;
+	this.drawTiles([tile1, tile2]);
+};
+
+Stage.prototype.shiftTiles = function(tiles) {
+	for (var i = tiles.length - 1; i > 0; i--) {
+		this.swapTiles(tiles[i], tiles[i - 1]);
+	}
+};
+
+Stage.prototype.shuffleTiles = function() {
+	var positions = Array.copy(this.positions, []);
+	for (var i = 0; i < this.tiles.length; i++) {
+		var position = Math.floor(Math.random() * (positions.length));
+		this.tiles[i].position = positions[position];
+		positions.remove(position, position);
+	}
+};
+
+Stage.prototype.shuffleAndDrawTiles = function() {
+    	this.shuffleTiles();
+    	while(!this.isPuzzleSolvable()) {
+		this.shuffleTiles();
+    	}
+	this.drawTiles(this.tiles);
+};
+
+Stage.prototype.drawTiles = function(tiles) {
+	for (var i = 0; i < tiles.length; i++) {
+		this.drawTile(tiles[i]);
+	}
+};
+
+Stage.prototype.drawTile = function(tile) {
+	if (!tile.blank) { 
+		this.context.drawImage(this.image, tile.x, tile.y, this.tileWidth, this.tileHeight, 
+			tile.position.x, tile.position.y, this.tileWidth, this.tileHeight);
+	} else {
+		this.context.fillRect(tile.position.x, tile.position.y, this.tileWidth, this.tileHeight); 	
+	}
+};
+
+Stage.prototype.findBlankTile = function() {
+	for (var i = 0; i < this.tiles.length; i++) {
+		if (this.tiles[i].blank) return this.tiles[i];	
+	}
+	return null;
+};
+
+Stage.prototype.isPuzzleFinished = function(showLastPiece) {
+	for (var y = 0, i = 0; y <= this.num - 1; y++) {
+		for (var x = 0; x <= this.num - 1; x++, i++) {
+			if (this.findTileWithCoordinate(x, y).i != this.positions[i].i) return false;
+		}
+	}
+	if (showLastPiece) {
+		var tile = this.findBlankTile();
+		if (tile != null) {
+			tile.blank = false;
+			this.drawTile(tile);
+		}
+	}
+	return true;
+};
+   
+/*
+
+http://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
+
+An inversion is when a tile precedes another tile with a lower number on it. The solution state has zero inversions. 
+For example, if, in a 4 x 4 grid, number 12 is top left, then there will be 11 inversions from this tile, as numbers 1-11 come after it. 
+To explain it another way, an inversion is a pair of tiles (a,b) such that a appears before b, but a>b.
+
+*/
+Stage.prototype.numberOfInversions = function() {
+	var number = 0;
+	var tileCurrent, tileAfter;
+	for (var i = 0; i < this.tiles.length; i++) {
+	    	tileCurrent = this.tiles[i];
+	    	if (!tileCurrent.blank) {
+			for (var j = tileCurrent.position.i + 1; j < this.tiles.length; j++) {
+		    		tileAfter = this.findTileWithPosition(j);
+				if (!tileAfter.blank && tileAfter.i < tileCurrent.i) number++;
+			}
+	    	}
+	}
+	return number;
+};
+
+Stage.prototype.rowNumberOfBlankTileFromBottom = function() {
+    	var tile = this.findBlankTile();
+	return (tile == null) ? (null) : (this.num - (Math.floor(tile.position.i / this.num)));
+};
+
+/*    
+Sufficient and necessary condition for a sliding puzzle with n x n tiles to be solvable:
+((n == odd) && (#inversions == even)) || ((n == even) && ((blank == on odd row from bottom) == (#inversions == even)))
+*/
+Stage.prototype.isPuzzleSolvable = function() {
+	return ((this.num % 2 != 0) && (this.numberOfInversions() % 2 == 0)) || 
+		((this.num % 2 == 0) && ((this.rowNumberOfBlankTileFromBottom() % 2 != 0) == (this.numberOfInversions() % 2 == 0)));
+};
+Stage.prototype.clear = function() {
+	this.context.fillStyle = "#fff";
+	this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+}
+</script>
+<script type="text/javascript">
+	window.onload = function() {
+		var canvas = document.getElementById('canvas_stage');
+		var tile, tiles = null;
+		var clickable, draggable = false;
+		var startX, startY, endX, endY = 0;
+		var image = new Image();
+		image.onload = init;
+		image.src = image_url;
+	    	
+		function init() {  
+			var stage = new Stage(canvas, image, 2 + Math.floor(Math.random() * 4));
+			stage.shuffleAndDrawTiles();
+		    	function finish() {
+			    	stage.gridWidth = 0;
+				stage.init();
+				stage.tiles[stage.tiles.length - 1].blank = false;
+				stage.drawTiles(stage.tiles);
+				document.getElementById('puzzle_finished').style.visibility = 'visible';
+			}
+			function onclick(e) {
+				if (clickable) {
+					tile = stage.findTileWithPosition(stage.findPosition(e.pageX - canvas.offsetLeft, e.pageY - canvas.offsetTop));
+					if (tile != null) {
+						tiles = stage.findReachableBlankTileAndPath(tile);
+						if(tiles != null) {
+							stage.shiftTiles(tiles);
+						}
+					    	if (stage.isPuzzleFinished(true)) finish();
+					}
+				}
+			}
+			function onmousedown(e) {
+				clickable = true;
+				tile = stage.findTileWithPosition(stage.findPosition(e.pageX - canvas.offsetLeft, e.pageY - canvas.offsetTop));
+				if (tile != null) {
+					draggable = true;
+					startX = e.pageX - canvas.offsetLeft;
+					startY = e.pageY - canvas.offsetTop;
+					tiles = stage.findReachableBlankTileAndPath(tile);
+					if(tiles != null) {
+						canvas.onmousemove = onmousemove;
+					}
+				}
+			}
+			function onmousemove(e) {
+				if (draggable) {
+					clickable = false;
+					endX = e.pageX - canvas.offsetLeft;
+					endY = e.pageY - canvas.offsetTop;
+					dx = endX - startX;
+					dy = endY - startY;
+					var tileDX = tiles[tiles.length - 1].position.x - tile.position.x;
+					var tileDY = tiles[tiles.length - 1].position.y - tile.position.y;
+					if ((Math.abs(dx) >= stage.tileWidth / 2) && (dx < 0 && tileDX < 0 || dx > 0 && tileDX > 0) || 
+						(Math.abs(dy) >= stage.tileWidth / 2) && (dy < 0 && tileDY < 0 || dy > 0 && tileDY > 0)) {
+						stage.shiftTiles(tiles);
+						draggable = false;
+					}
+					if (stage.isPuzzleFinished(true)) finish();
+				}
+			}
+			function onmouseup(e) {
+				draggable = false;
+				canvas.onmousemove = null;
+			}
+			canvas.onclick = onclick;
+			canvas.onmousedown = onmousedown;
+			canvas.onmouseup = onmouseup;
+		}
+	}
+</script>
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-3060729-35']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+</head>
+<body>
+	<center>
+		<canvas id="canvas_stage">Sorry but your browser does not support HTML5 canvas feature, which is required by this sliding puzzle game.</canvas>
+		<p id="puzzle_finished" style="visibility:hidden;">Puzzle finished! Refresh page to restart.</p>
+	</center>
+</body>
+</html>
