@@ -10,10 +10,10 @@ function jsonFlickrApi(rsp) {
 	i = i * 100;
 	i = Math.ceil(i);
 	photo = rsp.photos.photo[i];
-	image_url = "http://farm" + photo.farm + ".static.flickr.com/" + photo.server + "/" + photo.id + "_" + photo.secret + ".jpg";
+	image_url = "https://farm" + photo.farm + ".static.flickr.com/" + photo.server + "/" + photo.id + "_" + photo.secret + ".jpg";
 }
 </script>
-<script type="text/javascript" language="javascript" src="http://api.flickr.com/services/rest/?format=json&sort=random&method=flickr.photos.search&tags=japan,anime,china,beijing,shanghai,yunnan,hongkong,taiwan,korea,usa,europe&api_key=d4270df18b6843be533c471e9a8c57b2">
+<script type="text/javascript" language="javascript" src="https://api.flickr.com/services/rest/?format=json&sort=random&method=flickr.photos.search&tags=japan,anime,china,beijing,shanghai,yunnan,hongkong,taiwan,korea,usa,europe&api_key=d4270df18b6843be533c471e9a8c57b2">
 </script>
 <script type="text/javascript">
 Array.copy = function(from, to) {
